@@ -23,7 +23,7 @@ const titleLetter = {
   show: { 
     y: 0, 
     opacity: 1,
-    transition: { duration: 1, ease: [0.22, 1, 0.36, 1] }
+    transition: { duration: 1, ease: "easeInOut" }
   },
 }
 
@@ -32,7 +32,7 @@ const Reveal = ({ children, delay = 0, className = "" }: { children: React.React
     initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
     whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
     viewport={{ once: true, margin: "-10%" }}
-    transition={{ duration: 0.8, delay, ease: [0.22, 1, 0.36, 1] }}
+    transition={{ duration: 0.8, delay, ease: "easeInOut" }}
     className={className}
   >
     {children}
