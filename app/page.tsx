@@ -2,12 +2,12 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, Variants } from 'framer-motion'
 import { Menu, ArrowRight, X } from 'lucide-react'
 import { useState } from 'react'
 
 // --- ANIMATION VARIANTS ---
-const titleContainer = {
+const titleContainer: Variants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
@@ -18,12 +18,15 @@ const titleContainer = {
   },
 }
 
-const titleLetter = {
+const titleLetter: Variants = {
   hidden: { y: 100, opacity: 0 },
   show: { 
     y: 0, 
     opacity: 1,
-    transition: { duration: 1, ease: "easeInOut" }
+    transition: { 
+      duration: 1, 
+      ease: "easeInOut" 
+    }
   },
 }
 
