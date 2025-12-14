@@ -1,446 +1,525 @@
-'use client'
+'use client';
 
-import Link from 'next/link'
-import Image from 'next/image'
-import { motion, AnimatePresence, Variants } from 'framer-motion'
-import { Menu, ArrowRight, X } from 'lucide-react'
-import { useState } from 'react'
+import { Inter, Orbitron } from 'next/font/google';
+import Image from 'next/image';
+import Link from 'next/link';
+import { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence, useScroll, useTransform, useMotionValue } from 'framer-motion';
+import { Menu, X, ArrowRight, ArrowUpRight } from 'lucide-react';
 
-// --- ANIMATION VARIANTS ---
-const titleContainer: Variants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-      delayChildren: 0.3,
-    },
-  },
-}
+// --- FONTS ---
+const inter = Inter({ subsets: ['latin'], variable: "--font-inter" });
+const orbitron = Orbitron({ subsets: ['latin'], variable: "--font-orbitron" });
 
-const titleLetter: Variants = {
-  hidden: { y: 100, opacity: 0 },
-  show: { 
-    y: 0, 
-    opacity: 1,
-    transition: { 
-      duration: 1, 
-      ease: "easeInOut" 
-    }
-  },
-}
-
+// --- ANIMATION COMPONENTS ---
 const Reveal = ({ children, delay = 0, className = "" }: { children: React.ReactNode, delay?: number, className?: string }) => (
   <motion.div
     initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
     whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
     viewport={{ once: true, margin: "-10%" }}
-    transition={{ duration: 0.8, delay, ease: "easeInOut" }}
+    transition={{ duration: 0.8, delay, ease: [0.22, 1, 0.36, 1] }}
     className={className}
   >
     {children}
   </motion.div>
-)
+);
 
-export default function Home() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
+// --- PROJECT DATA ---
+const projects = [
+    { id: 1, name: "LUXECAR", category: "Automotive", src: "/luxecar.jpg" },
+    { id: 2, name: "PIZZERIA DIAMANTE", category: "Food & Beverage", src: "/pizzeria.jpg" },
+    { id: 3, name: "CONSTRUCTIONS EDILI", category: "Architecture", src: "/construction.jpg" },
+];
 
-  const toggleMenu = () => setIsMenuOpen(!isMenuOpen)
+// --- SCROLL COLOR LOGIC ---
+// Define Colors for each scroll section: Black -> Dark Gray -> Electric Blue -> Black
+const colors = ["#000000", "#1A1A1A", "#0044EE", "#000000"];
 
-  const menuLinks = [
-    { label: "Home", href: "#" },
-    { label: "Chi Siamo", href: "#chi-siamo" },
-    { label: "Progetti", href: "#progetti" },
-    { label: "Contatti", href: "#contatti" },
-  ]
+// --- COOKIE BANNER COMPONENT ---
+const CookieBanner = () => {
+  const [isVisible, setIsVisible] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+    // Check if consent already given
+    const consent = localStorage.getItem('nexora_consent');
+    if (!consent) {
+      // Show banner after 2 second delay
+      const timer = setTimeout(() => {
+        setIsVisible(true);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  const handleAccept = () => {
+    localStorage.setItem('nexora_consent', 'accepted');
+    setIsVisible(false);
+  };
+
+  const handleClose = () => {
+    localStorage.setItem('nexora_consent', 'dismissed');
+    setIsVisible(false);
+  };
+
+  if (!isMounted || !isVisible) return null;
 
   return (
-    <main className="min-h-screen bg-black text-white selection:bg-[#0044EE] selection:text-white">
+    <AnimatePresence>
+      {isVisible && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 20 }}
+          transition={{ duration: 0.3 }}
+          className="fixed bottom-6 left-6 z-50 bg-white text-black p-4 rounded-lg shadow-2xl max-w-sm"
+        >
+          <p className="text-sm font-mono mb-4">
+            Questo sito utilizza cookie per migliorare l'esperienza. Continuando a navigare, accetti il nostro utilizzo dei cookie.
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={handleAccept}
+              className="px-4 py-2 bg-black text-white text-xs font-mono uppercase tracking-widest hover:bg-[#0044EE] transition-colors"
+            >
+              Accept
+            </button>
+            <button
+              onClick={handleClose}
+              className="px-4 py-2 border border-black text-black text-xs font-mono uppercase tracking-widest hover:bg-black hover:text-white transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+
+export default function Home() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
+  
+  // Ref for the main container to track scroll
+  const containerRef = useRef(null);
+  const { scrollYProgress } = useScroll({ target: containerRef });
+  
+  // The scroll transformation logic (0 to 1 based on viewport scroll)
+  // We divide the scroll into 3 segments to match the 4 colors (3 transitions)
+  // Black (Hero) -> Dark Gray (Services) -> Electric Blue (Projects) -> Black (Contact)
+  const backgroundColor = useTransform(scrollYProgress, 
+    [0, 0.33, 0.66, 1], // Input scroll position thresholds (0% to 100%)
+    colors 
+  );
+
+
+  return (
+    <motion.div 
+      ref={containerRef} 
+      style={{ backgroundColor }} 
+      className={`min-h-screen ${inter.variable} ${orbitron.variable} font-sans selection:bg-[#0044EE] selection:text-white`}
+    >
       
       {/* --- NAVBAR --- */}
-      <nav className="fixed top-0 w-full z-50 px-6 md:px-12 py-8 flex justify-between items-center text-white mix-blend-difference">
-        
-        {/* Left: Burger Menu Button */}
-        <Reveal>
-          <button onClick={toggleMenu} className="flex items-center gap-3 group relative z-50">
-            <div className="p-2 border border-white/20 rounded-full group-hover:border-[#0044EE] transition-colors duration-300">
-              <Menu className="w-5 h-5 cursor-pointer group-hover:text-[#0044EE] transition-colors" />
-            </div>
-            <span className="hidden md:block text-xs uppercase tracking-widest font-bold font-orbitron">
-              Menu
-            </span>
-          </button>
-        </Reveal>
+      <nav className="fixed top-0 left-0 w-full z-50 px-6 md:px-12 py-8 flex justify-between items-center mix-blend-difference text-white">
+        {/* Burger Menu Button (Left) */}
+        <button onClick={toggleMenu} className="flex items-center gap-3 group">
+          <div className="p-3 border border-white/20 rounded-full hover:border-[#0044EE] hover:bg-[#0044EE] transition-all duration-300">
+            <Menu className="w-5 h-5 text-white" />
+          </div>
+          <span className="hidden md:block text-xs font-bold font-orbitron uppercase tracking-widest text-white">Menu</span>
+        </button>
 
-        {/* Right: WhatsApp CTA (Fixed Link) */}
-        <Reveal delay={0.2}>
-          <a 
-            href="https://wa.me/393533685270"
-            target="_blank"
+        {/* CTA Button (Right) */}
+        <Link 
+            href="https://wa.me/393533685270" 
+            target="_blank" 
             rel="noopener noreferrer"
-            className="group flex items-center gap-2 border border-white/20 px-6 py-3 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-[#0044EE] hover:border-[#0044EE] transition-all duration-300 relative z-50"
-          >
-            <span>Parliamone</span>
-            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-          </a>
-        </Reveal>
+            className="group flex items-center gap-2 bg-white text-black px-6 py-3 rounded-full hover:bg-[#0044EE] hover:text-white transition-all duration-300"
+        >
+            <span className="text-xs font-bold uppercase tracking-widest font-mono">Contattaci</span>
+        </Link>
       </nav>
 
-      {/* --- FULL SCREEN MENU OVERLAY --- */}
+      {/* --- MENU OVERLAY --- (Reusing old Nexora structure) */}
       <AnimatePresence>
         {isMenuOpen && (
           <motion.div
             initial={{ y: "-100%" }}
             animate={{ y: 0 }}
             exit={{ y: "-100%" }}
-            transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed inset-0 z-[60] bg-black flex flex-col items-center justify-center"
+            transition={{ duration: 0.8 }}
+            className="fixed inset-0 z-40 bg-black flex flex-col justify-center items-center"
           >
-            {/* Close Button */}
-            <button 
-              onClick={toggleMenu}
-              className="absolute top-8 right-6 md:right-12 p-2 border border-white/20 rounded-full hover:border-[#FF5F56] transition-colors group"
-            >
-              <X className="w-6 h-6 group-hover:text-[#FF5F56]" />
+            <button onClick={toggleMenu} className="absolute top-8 left-6 p-3 border border-white/20 rounded-full hover:border-[#FF5F56] transition-colors">
+              <X className="w-6 h-6 text-white" />
             </button>
-
-            {/* Menu Links */}
-            <div className="flex flex-col gap-8 text-center">
-              {menuLinks.map((link, idx) => (
-                <motion.div
-                  key={idx}
-                  initial={{ opacity: 0, y: 40 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 + (idx * 0.1) }}
-                >
-                  <a 
-                    href={link.href} 
-                    onClick={toggleMenu}
-                    className="text-5xl md:text-7xl font-bold font-orbitron uppercase hover:text-[#0044EE] transition-colors"
-                  >
-                    {link.label}
-                  </a>
-                </motion.div>
-              ))}
+             <div className="flex flex-col gap-6 text-center">
+                {['Home', 'Servizi', 'Progetti', 'Contatti'].map((link, i) => (
+                    <motion.div key={i} initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 + i * 0.1, duration: 0.6 }}>
+                        <Link href={`#${link.toLowerCase()}`} onClick={toggleMenu} className="text-5xl font-bold font-orbitron uppercase text-white hover:text-[#0044EE] transition-colors">
+                            {link}
+                        </Link>
+                    </motion.div>
+                ))}
             </div>
-            
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.8 }}
-              className="absolute bottom-12 text-xs font-mono text-neutral-500 uppercase tracking-widest"
-            >
-              Nexora Digital Studio — 2025
-            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* --- HERO SECTION --- */}
-      <section className="relative h-screen flex flex-col items-center justify-center overflow-hidden">
-        
-        {/* Background Image */}
-        <div className="absolute inset-0 z-0">
-          <Image 
-            src="/hero.jpg" 
-            alt="Nexora Background"
-            fill
-            className="object-cover opacity-70"
-            priority
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-transparent to-black" />
-          <div className="absolute inset-0 bg-black/30" />
-        </div>
-        
-        {/* Content */}
-        <div className="relative z-10 text-center px-4 w-full flex flex-col items-center justify-center h-full">
+
+      {/* --- SECTION 1: HERO (0% - 33% Scroll) --- */}
+      <section id="home" className="h-[100vh] w-full flex flex-col justify-center items-center text-white p-6 relative overflow-hidden">
+          {/* Background Video */}
+          <div className="absolute inset-0 z-0">
+              <video
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="absolute inset-0 w-full h-full object-cover opacity-60"
+              >
+                  <source src="/hero.mp4" type="video/mp4" />
+              </video>
+              {/* Gradient Overlay for Text Readability */}
+              <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/60 to-black/80" />
+          </div>
           
-          {/* Staggered Title */}
-          <motion.h1 
-            variants={titleContainer}
-            initial="hidden"
-            animate="show"
-            className="text-[12vw] md:text-[10vw] leading-[1] font-bold font-orbitron text-white mix-blend-overlay select-none flex justify-center overflow-hidden"
-          >
-            {Array.from("NEXORA").map((letter, i) => (
-              <motion.span key={i} variants={titleLetter} className="inline-block">
-                {letter}
-              </motion.span>
-            ))}
-          </motion.h1>
-          
-          {/* Subtitle & Line */}
-          <Reveal delay={0.8}>
-            <div className="flex flex-col items-center mt-8 gap-6">
-              <p className="text-xs md:text-sm uppercase tracking-[0.4em] text-[#0044EE] font-orbitron font-bold drop-shadow-lg">
-                Il Futuro del Design Digitale
-              </p>
+          {/* Content */}
+          <div className="relative z-10 flex flex-col items-center justify-center text-center">
+              {/* NEXORA Title with Staggered Reveal */}
+              <motion.h1 
+                  className="text-6xl md:text-9xl font-bold font-orbitron uppercase tracking-tighter leading-none drop-shadow-2xl"
+                  initial="hidden"
+                  animate="visible"
+                  variants={{
+                      visible: {
+                          transition: {
+                              staggerChildren: 0.1,
+                              delayChildren: 0.2,
+                          }
+                      }
+                  }}
+              >
+                  {Array.from("NEXORA").map((letter, index) => (
+                      <motion.span
+                          key={index}
+                          className="inline-block"
+                          variants={{
+                              hidden: {
+                                  opacity: 0,
+                                  y: 100,
+                                  clipPath: "inset(100% 0 0 0)",
+                              },
+                              visible: {
+                                  opacity: 1,
+                                  y: 0,
+                                  clipPath: "inset(0% 0 0 0)",
+                                  transition: {
+                                      duration: 0.8,
+                                      ease: [0.22, 1, 0.36, 1],
+                                  }
+                              }
+                          }}
+                      >
+                          {letter}
+                      </motion.span>
+                  ))}
+              </motion.h1>
               
-              <motion.div 
-                initial={{ height: 0 }}
-                animate={{ height: 48 }}
-                transition={{ delay: 1.2, duration: 1 }}
-                className="w-[1px] bg-gradient-to-b from-[#0044EE] to-transparent opacity-80 mt-6"
-              />
-            </div>
-          </Reveal>
-
-        </div>
+              {/* Subtitle with Breathing Animation */}
+              <motion.p 
+                  className="text-xl md:text-2xl font-mono mt-8 tracking-widest drop-shadow-lg"
+                  initial={{ opacity: 0, y: 50 }}
+                  animate={{ 
+                      opacity: 1, 
+                      y: 0,
+                  }}
+                  transition={{
+                      opacity: { duration: 0.8, delay: 0.8, ease: [0.22, 1, 0.36, 1] },
+                      y: { duration: 0.8, delay: 0.8, ease: [0.22, 1, 0.36, 1] },
+                  }}
+              >
+                  <motion.span
+                      animate={{
+                          y: [0, -8, 0],
+                      }}
+                      transition={{
+                          duration: 4,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                          delay: 1.6,
+                      }}
+                  >
+                      DEFINE YOUR DIGITAL FUTURE
+                  </motion.span>
+              </motion.p>
+          </div>
+          
+          <div className="absolute bottom-12 text-sm font-mono text-white/70 z-10">Scroll Down ↓</div>
       </section>
 
-      {/* --- MISSION STATEMENT (Chi Siamo) --- */}
-      <section id="chi-siamo" className="py-32 md:py-48 px-6 bg-black relative z-20 border-t border-white/5">
-        <div className="max-w-[90vw] md:max-w-6xl mx-auto flex flex-col items-center">
-          
-          <Reveal>
-            <div className="flex items-center gap-4 mb-16">
-              <span className="text-xs md:text-sm font-orbitron font-bold uppercase tracking-[0.3em] text-neutral-500">
-                ( 01 ) — Chi Siamo
-              </span>
-            </div>
-          </Reveal>
-
-          <Reveal delay={0.2}>
-            <h2 className="text-3xl md:text-5xl lg:text-7xl font-light text-center leading-[1.15] md:leading-[1.1] tracking-tight text-white/90">
-              Non creiamo solo siti web. Costruiamo <span className="text-[#0044EE] font-semibold">Ecosistemi Digitali</span> che definiscono il futuro dei brand.
-              <br className="hidden md:block" />
-              <span className="opacity-50">Uniamo strategia, design e tecnologia per un impatto </span>
-              <span className="italic font-serif text-white opacity-100">Assoluto.</span>
-            </h2>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* --- SERVICES LIST (Cosa Facciamo) --- */}
-      <section className="py-32 px-6 bg-black text-white relative z-10">
-        <div className="max-w-6xl mx-auto">
-          
-          <Reveal>
-            <div className="flex flex-col md:flex-row justify-between items-end mb-24 gap-8">
-              <div>
-                <span className="text-xs md:text-sm font-orbitron font-bold uppercase tracking-[0.3em] text-neutral-500 block mb-4">
-                  ( 02 ) — Cosa Facciamo
-                </span>
-                <h2 className="text-4xl md:text-6xl font-bold font-orbitron leading-tight">
-                  Design & <br /> <span className="text-[#0044EE]">Ingegneria.</span>
-                </h2>
-              </div>
-            </div>
-          </Reveal>
-
-          <div className="flex flex-col">
-            {[
-              { id: "01", title: "BRAND IDENTITY", tags: "Strategia / Art Direction / Naming" },
-              { id: "02", title: "UI/UX DESIGN", tags: "Web Design / Mobile Apps / Motion" },
-              { id: "03", title: "SVILUPPO WEB", tags: "Next.js / Creative Coding / eCommerce" },
-              { id: "04", title: "DIGITAL GROWTH", tags: "SEO / Social Media / Content" }
-            ].map((service, idx) => (
-              <Reveal key={idx} delay={idx * 0.1}>
-                <div className="group border-t border-white/20 py-12 flex flex-col md:flex-row justify-between items-baseline md:items-center cursor-pointer transition-all duration-500 hover:border-[#0044EE] hover:bg-white/5 px-4 md:px-0">
-                  <div className="flex items-baseline gap-8 md:gap-16 group-hover:translate-x-4 transition-transform duration-500">
-                    <span className="font-orbitron text-xs md:text-sm text-neutral-500 group-hover:text-[#0044EE] transition-colors">
-                      {service.id}
-                    </span>
-                    <h3 className="text-3xl md:text-5xl font-bold font-orbitron uppercase tracking-wide group-hover:text-[#0044EE] transition-colors">
-                      {service.title}
-                    </h3>
-                  </div>
-                  <div className="flex items-center gap-4 md:gap-12 mt-4 md:mt-0 w-full md:w-auto justify-between group-hover:translate-x-[-1rem] transition-transform duration-500">
-                    <span className="text-xs font-mono text-neutral-400 uppercase tracking-widest hidden md:block group-hover:text-white transition-colors">
-                      {service.tags}
-                    </span>
-                    <div className="bg-white/10 p-3 rounded-full group-hover:bg-[#0044EE] group-hover:text-white transition-all duration-500">
-                      <ArrowRight className="w-5 h-5 -rotate-45 group-hover:rotate-0 transition-transform duration-500" />
-                    </div>
-                  </div>
-                </div>
+      {/* --- SECTION 2: ABOUT/SERVICES (33% - 66% Scroll) --- */}
+      <section id="servizi" className="min-h-[100vh] w-full flex flex-col justify-center items-center text-white p-6 md:p-12 relative">
+          <div className="max-w-7xl mx-auto w-full">
+              <Reveal>
+                  <h2 className="text-4xl md:text-6xl font-bold font-orbitron uppercase tracking-tight mb-16 md:mb-24">
+                      COSA FACCIAMO
+                  </h2>
               </Reveal>
-            ))}
-            <div className="border-t border-white/20"></div>
+
+              {/* Services List */}
+              <div className="flex flex-col w-full">
+                  {[
+                      { 
+                          id: "01", 
+                          title: "STRATEGY", 
+                          description: "Audit, Digital Consulting, User Research" 
+                      },
+                      { 
+                          id: "02", 
+                          title: "BRANDING", 
+                          description: "Visual Identity, Art Direction, Motion Design" 
+                      },
+                      { 
+                          id: "03", 
+                          title: "DEVELOPMENT", 
+                          description: "Creative Web, E-Commerce, WebGL/3D" 
+                      },
+                      { 
+                          id: "04", 
+                          title: "MARKETING", 
+                          description: "SEO/SEM, Social Strategy, Growth" 
+                      }
+                  ].map((service, index) => (
+                      <Reveal key={service.id} delay={index * 0.1}>
+                          <div className="group border-t border-white/20 py-6 md:py-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4 md:gap-8 hover:py-8 md:hover:py-10 transition-all duration-300 cursor-pointer">
+                              {/* Number */}
+                              <div className="flex-shrink-0">
+                                  <span className="text-sm md:text-base font-orbitron text-white/60 group-hover:text-[#0044EE] transition-colors">
+                                      {service.id}
+                                  </span>
+                              </div>
+
+                              {/* Title */}
+                              <div className="flex-1">
+                                  <h3 className="text-2xl md:text-4xl lg:text-5xl font-bold font-orbitron uppercase tracking-tight group-hover:text-[#0044EE] transition-colors">
+                                      {service.title}
+                                  </h3>
+                              </div>
+
+                              {/* Description */}
+                              <div className="flex-1 md:max-w-md">
+                                  <p className="text-sm md:text-base font-mono text-white/70 group-hover:text-white/90 transition-colors">
+                                      {service.description}
+                                  </p>
+                              </div>
+
+                              {/* Icon */}
+                              <div className="flex-shrink-0">
+                                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-full border border-white/20 flex items-center justify-center group-hover:border-[#0044EE] group-hover:bg-[#0044EE] transition-all duration-300">
+                                      <ArrowRight className="w-5 h-5 md:w-6 md:h-6 text-white/60 group-hover:text-white group-hover:translate-x-1 transition-all duration-300" />
+                                  </div>
+                              </div>
+                          </div>
+                      </Reveal>
+                  ))}
+                  {/* Bottom border */}
+                  <div className="border-t border-white/20 mt-4"></div>
+              </div>
           </div>
-        </div>
       </section>
 
-      {/* --- STICKY PARALLAX PROJECTS (Progetti) --- */}
-      <section id="progetti" className="bg-black text-white relative z-10 pb-32">
-        
-        <div className="px-6 md:px-12 py-32">
-          <Reveal>
-            <span className="text-xs md:text-sm font-orbitron font-bold uppercase tracking-[0.3em] text-[#0044EE] block mb-4">
-              ( 03 ) — Progetti
-            </span>
-            <h2 className="text-5xl md:text-7xl font-bold font-orbitron uppercase">
-              Opere <span className="text-neutral-500">Selezionate.</span>
-            </h2>
-          </Reveal>
-        </div>
+      {/* --- SECTION 3: PROJECTS (66% - 100% Scroll) --- */}
+      <section id="progetti" className="min-h-[100vh] w-full text-white p-6 md:p-12 relative flex items-center justify-center">
+          <div className="max-w-7xl mx-auto w-full">
+              <Reveal>
+                  <span className="text-sm font-mono uppercase tracking-widest text-white mb-12 block">( PROGETTI IN EVIDENZA )</span>
+              </Reveal>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                  {projects.map((project, index) => (
+                      <Reveal key={project.id} delay={index * 0.15}>
+                          <div className="group cursor-pointer bg-white/10 p-4 rounded-lg backdrop-blur-sm border border-white/20 hover:border-[#0044EE] transition-all duration-300">
+                              <div className="relative w-full aspect-[1908/863] overflow-hidden mb-4 bg-black rounded-lg">
+                                  <Image 
+                                      src={project.src} 
+                                      alt={project.name}
+                                      fill
+                                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                                      sizes="(max-width: 768px) 100vw, 50vw"
+                                  />
+                              </div>
+                              <h3 className="text-2xl font-bold font-orbitron group-hover:text-[#0044EE] transition-colors">{project.name}</h3>
+                              <p className="text-sm font-mono text-white/70">{project.category}</p>
+                          </div>
+                      </Reveal>
+                  ))}
+              </div>
+          </div>
+      </section>
+      
+      {/* --- SECTION 4: CONTACT / FOOTER (100% Scroll) --- */}
+      <section id="contatti" className="h-[100vh] w-full flex flex-col justify-center items-center text-white p-6 relative">
+           <div className="max-w-xl mx-auto text-center">
+              <Reveal>
+                 <h2 className="text-5xl md:text-7xl font-bold font-orbitron tracking-tight leading-tight">
+                     READY <br />
+                     <span className="text-[#0044EE]">TO START?</span>
+                 </h2>
+              </Reveal>
+              <Reveal delay={0.2}>
+                 <p className="text-xl font-mono mt-8 mb-12 text-white/80">
+                    Siamo pronti per la vostra prossima sfida digitale.
+                 </p>
+              </Reveal>
+              <Reveal delay={0.4}>
+                  <Link 
+                      href="https://wa.me/393533685270" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="group flex items-center justify-center gap-2 bg-[#0044EE] text-white px-10 py-5 rounded-full text-lg font-bold font-mono hover:bg-white hover:text-black transition-all"
+                  >
+                    <span className="uppercase tracking-widest">Contattaci Ora</span>
+                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </Link>
+              </Reveal>
+          </div>
+      </section>
 
-        <div className="px-4 md:px-12 flex flex-col gap-12">
-          {[
-            { 
-              name: "PIZZERIA DIAMANTE", 
-              cat: "Food & Beverage", 
-              year: "2024",
-              desc: "Rebranding digitale e piattaforma di ordinazione per un'icona della tradizione italiana.",
-              src: "/pizzeria.jpg",
-              theme: "border-[#FF5F56]",
-              link: "/progetti/pizzeria-diamante"
-            },
-            { 
-              name: "COSTRUZIONI EDILI", 
-              cat: "Architecture & Real Estate", 
-              year: "2024",
-              desc: "Portfolio architettonico minimalista per un'azienda leader nel settore costruzioni.",
-              src: "/construction.jpg",
-              theme: "border-[#FFBD2E]",
-              link: "/progetti/costruzioni-edili"
-            },
-            { 
-              name: "LUXECAR", 
-              cat: "Automotive Dealership", 
-              year: "2025",
-              desc: "Showroom virtuale immersivo con configuratore 3D per veicoli di lusso.",
-              src: "/luxecar.jpg",
-              theme: "border-[#0044EE]",
-              link: "/progetti/luxecar"
-            },
-            { 
-              name: "AURA", 
-              cat: "Wellness & Spa", 
-              year: "2023",
-              desc: "Esperienza web sensoriale per un centro benessere esclusivo nel cuore di Roma.",
-              src: "/aura.jpg",
-              theme: "border-[#27C93F]",
-              link: "/progetti/aura"
-            }
-          ].map((project, idx) => (
-            <div 
-              key={idx} 
-              className={`sticky top-24 md:top-32 h-[80vh] w-full bg-[#111] rounded-2xl border-t-4 ${project.theme} overflow-hidden shadow-2xl flex flex-col md:flex-row`}
-              style={{ marginTop: idx === 0 ? 0 : `-20vh` }} 
-            >
-              <div className="w-full md:w-1/2 p-8 md:p-16 flex flex-col justify-between relative z-10">
-                <div>
-                  <div className="flex items-center gap-4 mb-8">
-                    <span className="text-xs font-mono uppercase tracking-widest text-neutral-400 border border-white/20 px-3 py-1 rounded-full">
-                      {project.cat}
-                    </span>
-                    <span className="text-xs font-mono text-neutral-600">
-                      {project.year}
-                    </span>
-                  </div>
-                  <h3 className="text-4xl md:text-6xl font-bold font-orbitron uppercase leading-[0.9] mb-8">
-                    {project.name}
-                  </h3>
-                  <p className="text-lg text-neutral-400 leading-relaxed max-w-sm">
-                    {project.desc}
+      {/* --- FOOTER --- */}
+      <footer className="w-full bg-black text-white border-t border-white/10">
+          {/* Top Row: Massive NEXORA Text */}
+          <div className="py-16 md:py-24 border-b border-white/10">
+              <div className="text-center">
+                  <h2 className="text-[12vw] md:text-[8vw] font-bold font-orbitron uppercase tracking-tighter leading-none">
+                      NEXORA
+                  </h2>
+              </div>
+          </div>
+
+          {/* Grid: 4 Columns */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-12 p-6 md:p-12 border-b border-white/10">
+              {/* 01 HEADQUARTERS */}
+              <div>
+                  <Reveal>
+                      <span className="text-xs font-mono uppercase tracking-widest text-white/60 block mb-4">
+                          01 HEADQUARTERS
+                      </span>
+                  </Reveal>
+                  <Reveal delay={0.1}>
+                      <a 
+                          href="mailto:infonexora@gmail.com" 
+                          className="text-sm font-mono text-white/80 hover:text-[#0044EE] transition-colors block"
+                      >
+                          infonexora@gmail.com
+                      </a>
+                  </Reveal>
+              </div>
+
+              {/* 02 SOCIALS */}
+              <div>
+                  <Reveal>
+                      <span className="text-xs font-mono uppercase tracking-widest text-white/60 block mb-4">
+                          02 SOCIALS
+                      </span>
+                  </Reveal>
+                  <Reveal delay={0.1}>
+                      <nav className="flex flex-col gap-3">
+                          {[
+                              { name: "Instagram", href: "#" },
+                              { name: "LinkedIn", href: "#" },
+                              { name: "Behance", href: "#" }
+                          ].map((social, index) => (
+                              <a
+                                  key={social.name}
+                                  href={social.href}
+                                  className="text-sm font-mono text-white/80 hover:text-[#0044EE] transition-colors"
+                              >
+                                  {social.name}
+                              </a>
+                          ))}
+                      </nav>
+                  </Reveal>
+              </div>
+
+              {/* 03 SITEMAP */}
+              <div>
+                  <Reveal>
+                      <span className="text-xs font-mono uppercase tracking-widest text-white/60 block mb-4">
+                          03 SITEMAP
+                      </span>
+                  </Reveal>
+                  <Reveal delay={0.1}>
+                      <nav className="flex flex-col gap-3">
+                          {[
+                              { name: "Home", href: "#home" },
+                              { name: "Servizi", href: "#servizi" },
+                              { name: "Progetti", href: "#progetti" }
+                          ].map((link, index) => (
+                              <Link
+                                  key={link.name}
+                                  href={link.href}
+                                  className="text-sm font-mono text-white/80 hover:text-[#0044EE] transition-colors"
+                              >
+                                  {link.name}
+                              </Link>
+                          ))}
+                      </nav>
+                  </Reveal>
+              </div>
+
+              {/* 04 LEGAL */}
+              <div>
+                  <Reveal>
+                      <span className="text-xs font-mono uppercase tracking-widest text-white/60 block mb-4">
+                          04 LEGAL
+                      </span>
+                  </Reveal>
+                  <Reveal delay={0.1}>
+                      <nav className="flex flex-col gap-3">
+                          {[
+                              { name: "Privacy Policy", href: "#" },
+                              { name: "Cookie Policy", href: "#" },
+                              { name: "Credits", href: "#" }
+                          ].map((link, index) => (
+                              <a
+                                  key={link.name}
+                                  href={link.href}
+                                  className="text-sm font-mono text-white/80 hover:text-[#0044EE] transition-colors"
+                              >
+                                  {link.name}
+                              </a>
+                          ))}
+                      </nav>
+                  </Reveal>
+              </div>
+          </div>
+
+          {/* Bottom Bar: Copyright + Back to Top */}
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4 p-6 md:p-12">
+              <Reveal>
+                  <p className="text-xs font-mono text-white/60 uppercase tracking-widest">
+                      © 2025 NEXORA - Digital Studio. All Rights Reserved.
                   </p>
-                </div>
-                <Link 
-                  href={project.link}
-                  className="w-fit group flex items-center gap-3 text-xs font-bold uppercase tracking-widest hover:text-[#0044EE] transition-colors mt-8"
-                >
-                  <span className="border-b border-white/30 pb-1 group-hover:border-[#0044EE] transition-colors">Vedi Case Study</span>
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </Link>
-              </div>
-              <div className="w-full md:w-1/2 h-full relative overflow-hidden">
-                <Image 
-                  src={project.src} 
-                  alt={project.name}
-                  fill
-                  className="object-cover transition-transform duration-1000 ease-out hover:scale-105"
-                  sizes="(max-width: 768px) 100vw, 50vw"
-                  priority={idx === 0}
-                />
-                <div className="absolute inset-0 bg-gradient-to-l from-transparent to-[#111]/80 md:to-[#111]/20" />
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="h-32"></div>
-      </section>
-
-      {/* --- MONOLITHIC FOOTER --- */}
-      <footer id="contatti" className="bg-black text-white relative z-20 overflow-hidden border-t border-white/10">
-        
-        {/* Infinite Marquee */}
-        <div className="py-8 border-b border-white/10 bg-black relative overflow-hidden">
-          <motion.div 
-            className="flex gap-12 whitespace-nowrap text-4xl md:text-6xl font-bold font-orbitron text-transparent bg-clip-text bg-gradient-to-b from-white/20 to-transparent uppercase select-none"
-            animate={{ x: [0, -1000] }}
-            transition={{ repeat: Infinity, duration: 20, ease: "linear" }}
-          >
-            {[...Array(6)].map((_, i) => (
-              <span key={i} className="flex items-center gap-12">
-                <span>Definiamo il Futuro</span>
-                <span className="text-[#0044EE]">///</span>
-                <span>Designing the Future</span>
-                <span className="text-[#0044EE]">///</span>
-              </span>
-            ))}
-          </motion.div>
-        </div>
-
-        <div className="px-6 md:px-12 py-32 flex flex-col items-center text-center">
-          
-          <Reveal>
-            <span className="text-xs md:text-sm font-orbitron font-bold uppercase tracking-[0.3em] text-[#0044EE] mb-8 block">
-              ( Contatti )
-            </span>
-          </Reveal>
-          
-          <Reveal delay={0.1}>
-            <h2 className="text-5xl md:text-7xl font-bold font-orbitron uppercase tracking-tight mb-16">
-              Pronti a Partire?
-            </h2>
-          </Reveal>
-
-          <Reveal delay={0.2}>
-            <Link 
-              href="mailto:infonexora@gmail.com" 
-              className="group relative block"
-            >
-              <span className="text-[8vw] md:text-[6vw] leading-none font-bold font-orbitron text-white group-hover:text-[#0044EE] transition-colors duration-500">
-                infonexora@gmail.com
-              </span>
-              <span className="absolute -bottom-4 left-0 w-full h-[2px] bg-[#0044EE] scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
-            </Link>
-          </Reveal>
-
-          <Reveal delay={0.3}>
-            <a 
-              href="https://wa.me/393533685270"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-16 inline-flex items-center gap-3 border border-white/20 hover:border-[#0044EE] hover:bg-[#0044EE] px-8 py-4 rounded-full transition-all duration-300 group"
-            >
-              <span className="text-xs font-bold uppercase tracking-widest font-orbitron">Chatta su WhatsApp</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </a>
-          </Reveal>
-
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 border-t border-white/10 text-xs font-mono uppercase tracking-widest text-neutral-500">
-          <div className="p-8 border-b md:border-b-0 md:border-r border-white/10 flex gap-6 justify-center md:justify-start">
-            {['Instagram', 'LinkedIn', 'Behance'].map(social => (
-              <a key={social} href="#" className="hover:text-white transition-colors">{social}</a>
-            ))}
+              </Reveal>
+              <Reveal delay={0.1}>
+                  <button
+                      onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                      className="group flex items-center gap-2 text-xs font-mono text-white/60 hover:text-[#0044EE] transition-colors uppercase tracking-widest"
+                  >
+                      <span>Back to Top</span>
+                      <ArrowUpRight className="w-4 h-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                  </button>
+              </Reveal>
           </div>
-          <div className="p-8 border-b md:border-b-0 md:border-r border-white/10 flex justify-center items-center gap-3">
-            <span>Italia</span>
-            <span className="w-1.5 h-1.5 bg-[#0044EE] rounded-full animate-pulse" />
-            <span className="text-white">CET {new Date().getHours()}:{new Date().getMinutes().toString().padStart(2, '0')}</span>
-          </div>
-          <div className="p-8 flex justify-center md:justify-end gap-6">
-            <span>© 2025 Nexora</span>
-            <span>Privacy Policy</span>
-          </div>
-        </div>
-
       </footer>
 
-    </main>
-  )
+      {/* Cookie Banner */}
+      <CookieBanner />
+
+    </motion.div>
+  );
 }
